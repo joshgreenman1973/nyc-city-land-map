@@ -34,4 +34,23 @@ No-use lots **3,132 → 2,569**; category counts moved to distinct lots (other 4
 - The popup "≈ N homes" estimate and the 3D extrusion height are disclosed modeling choices (lot area × residential FAR), not measured facts.
 - "No current use" means no use *on record*; a lot can be occupied, contaminated, leased or otherwise unavailable in ways COLP does not capture.
 
-*This ledger is versioned with the site so the corrections are auditable.*
+---
+
+# Second review — fresh/adversarial pass (2026-07-06)
+
+A cold re-check, skeptical of the corrections above as well as the original. Everything was re-derived from the current deduped data and probed for assumptions not previously tested.
+
+## Held up under fresh scrutiny
+- **Totals validate against the primary framing.** Distinct-lot areas sum to **2.18 billion sq ft**, matching the Furman Center's "2.2 billion"; the parks/cultural lot-share (43%) matches Furman's ">40% of lots." Strong end-to-end validation of the dedup and area math.
+- **The no-use bucket is clean:** 87% is "vacant land," **0 lots are leased-in**, and ownership is city (`non_city_ownership = C`) on all but ~25 records. JFK/Rikers stay out. BBL integrity: 0 invalid, 0 duplicate lots.
+- Every displayed number (15,188 · 2,569 · 1,494 acres · 72% · zoning counts) re-derived and correct.
+
+## New findings
+- 🔶 **"Parks & recreation" was imprecise.** COLP's cultural/recreational category's single largest use type is **wetlands/natural areas (2,628 records)**, ahead of parks (1,458), with community gardens (755), playgrounds and a few branch libraries also inside. **Fixed:** relabeled **"Parks & natural areas"** with an accurate description (standalone map and Every Building overlay).
+- 🔷 **No-use acreage is a conservative floor, disclosed.** Furman's "417M sq ft / nearly 3,000 lots" counts every lot with any no-use record (incl. the 214M-sq-ft JFK lot); this map's stricter rule yields ~1,500 acres. Neither is "the developable acreage." **Fixed:** methodology now explains the gap explicitly.
+- ⚠️ **Precedence distorts land-area shares** (not lot counts): a large natural/park lot carrying an ancillary infrastructure record is assigned to "other active use," so the parks *area* share (41%) sits below Furman's 68%-of-land. Immaterial to the housing-opportunity purpose (both are non-developable); noted as a limitation. The map only claims *lot* shares, which match Furman.
+- ⚠️ **Data edition clarified:** COLP is bi-annual; this is the **May 2026** edition (pulled July 2026). Methodology updated.
+
+## Still unverified
+- The **Furman Center's exact figures** are now **corroborated by multiple consistent secondary summaries** ("417 million sq ft… nearly 3,000 lots"; "more than 40 percent of lots and 68 percent of the City's land"), and independently reconciled with this data — but the primary page still blocks automated access (Cloudflare 403; Wayback unreachable; the user's Chrome was not running), so they are not confirmed by direct read of the source.
+
