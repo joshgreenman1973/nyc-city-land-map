@@ -52,8 +52,22 @@
 <p>This is a deliberately simple back-of-envelope figure — it assumes about 1,000 square feet of building per home and takes the base residential FAR straight from zoning. It ignores height limits, setbacks, lot shape, bonuses, and every site-specific constraint. It is meant to separate "could plausibly hold real housing" from "could not," not to predict a project.</p>
 <p>Where a no-use lot is <b>not</b> zoned for housing (residential FAR of zero), the map notes it would need a rezoning. Where a lot is smaller than <b>5,000 square feet</b>, it flags that multifamily housing is difficult — echoing the Furman Center's point that most vacant city lots are small. In this data, <b>64%</b> of no-use lots with a recorded size fall under that threshold.</p>
 
+<h2>Zoning</h2>
+<p>The map can colour each plot by its <b>zoning</b> instead of its housing readiness. Zoning comes from MapPLUTO's primary zoning district (<code>ZoneDist1</code>) for each lot, grouped into families by the leading letter of the code:</p>
+<table>
+<tr><th>Group</th><th>Codes</th><th>What it means for housing</th></tr>
+<tr><td><span class="dot" style="background:#e8b53a"></span><b>Residential</b></td><td>R1–R10</td><td>Housing is allowed as-of-right. The popup adds a rough density band (e.g. R6 = medium density).</td></tr>
+<tr><td><span class="dot" style="background:#d9534f"></span><b>Commercial</b></td><td>C1–C8</td><td>Shops and offices; many commercial districts also permit residential use.</td></tr>
+<tr><td><span class="dot" style="background:#7e6cb0"></span><b>Manufacturing</b></td><td>M1–M3</td><td>Industrial. Housing is generally <b>not</b> permitted without a rezoning.</td></tr>
+<tr><td><span class="dot" style="background:#4e9d6c"></span><b>Mapped parkland</b></td><td>PARK</td><td>Zoned as park; effectively off-limits to development.</td></tr>
+<tr><td><span class="dot" style="background:#3aa6a0"></span><b>Battery Park City</b></td><td>BPC</td><td>A special district administered by a state authority.</td></tr>
+<tr><td><span class="dot" style="background:#b6b2a8"></span><b>No zoning on record</b></td><td>—</td><td>No primary zoning district in the data (about 200 lots).</td></tr>
+</table>
+<p>This is why the "zoned for housing as-of-right" filter matters: of the roughly 3,000 no-use sites, several hundred sit in manufacturing or commercial districts and would need a land-use change before housing could be built. The zoning shown is the lot's <i>primary</i> district only — lots split across two districts, commercial overlays and special-district rules are not reflected.</p>
+
 <h2>Filters</h2>
 <ul>
+<li><b>Zoning type</b> keeps only lots in the chosen zoning family (residential, commercial, manufacturing, parkland and so on).</li>
 <li><b>Minimum lot size</b> hides lots below the chosen square footage (lots with no PLUTO size match drop out once any minimum is set).</li>
 <li><b>Zoned for housing as-of-right</b> keeps only lots with a residential FAR above zero.</li>
 <li><b>Flagged for potential disposition</b> uses COLP's <code>final_commitment = "D"</code> field, DCP's marker that a lot may be disposed of by the city.</li>

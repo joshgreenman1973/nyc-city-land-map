@@ -34,6 +34,17 @@
   .cat-name{font-size:13.5px;font-weight:700;line-height:1.25}
   .cat-count{font-size:12px;color:var(--muted);margin-top:1px}
   .cat-body{flex:1}
+  .seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-bottom:12px}
+  .seg-btn{flex:1;padding:7px 8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;
+    background:#fbfaf7;color:var(--muted);border:none;border-right:1px solid var(--line)}
+  .seg-btn:last-child{border-right:none}
+  .seg-btn.active{background:var(--ink);color:#fff}
+  .zrow{display:flex;align-items:center;gap:11px;padding:7px 0;font-size:13px}
+  .zrow:not(:last-child){border-bottom:1px solid var(--line)}
+  .zrow .dot{width:14px;height:14px;border-radius:50%;flex:0 0 14px}
+  .zrow .zname{font-weight:600}
+  .zrow .zn{margin-left:auto;font-size:12px;color:var(--muted)}
+  #zone-legend .znote{font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:9px}
   .cat-desc{font-size:11.5px;color:var(--muted);line-height:1.35;margin-top:2px}
   /* Controls */
   label.fld{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 5px}
@@ -117,8 +128,13 @@
 
     <hr class="divide">
     <div class="pad">
-      <div class="sec-h">Land by readiness for housing</div>
+      <div class="sec-h">Colour the plots by</div>
+      <div id="colormode" class="seg">
+        <button class="seg-btn active" data-mode="cat">Housing readiness</button>
+        <button class="seg-btn" data-mode="zone">Zoning</button>
+      </div>
       <div id="cats"></div>
+      <div id="zone-legend" style="display:none"></div>
     </div>
 
     <hr class="divide">
@@ -131,6 +147,18 @@
       <div class="field">
         <label class="fld" for="f-agency">Agency / jurisdiction</label>
         <select id="f-agency"><option value="">All agencies</option></select>
+      </div>
+      <div class="field">
+        <label class="fld" for="f-zone">Zoning type</label>
+        <select id="f-zone">
+          <option value="">Any zoning</option>
+          <option value="R">Residential</option>
+          <option value="C">Commercial</option>
+          <option value="M">Manufacturing / industrial</option>
+          <option value="PARK">Mapped parkland</option>
+          <option value="BPC">Battery Park City</option>
+          <option value="O">No zoning on record</option>
+        </select>
       </div>
       <div class="field">
         <label class="fld" for="f-size">Minimum lot size <span class="rangeval" id="size-val">any</span></label>
@@ -175,12 +203,36 @@ const CATS = {
   3:{name:'Other active use',color:'#9a8c7a',desc:'Offices, schools, depots, courts and infrastructure in daily use.'},
   4:{name:'Parks & recreation',color:'#4e9d6c',desc:'Parks, playgrounds and ballfields — mostly protected from development.'},
 };
+// Zoning families (NYC): R residential, C commercial, M manufacturing,
+// PARK mapped parkland, BPC Battery Park City, O none/other.
+const ZONE_CATS = {
+  R:{name:'Residential',color:'#e8b53a',desc:'Housing allowed as-of-right.'},
+  C:{name:'Commercial',color:'#d9534f',desc:'Shops, offices; often allows housing too.'},
+  M:{name:'Manufacturing',color:'#7e6cb0',desc:'Industrial — housing needs a rezoning.'},
+  PARK:{name:'Mapped parkland',color:'#4e9d6c',desc:'Zoned as park; effectively off-limits.'},
+  BPC:{name:'Battery Park City',color:'#3aa6a0',desc:'Special state-run district.'},
+  O:{name:'No zoning on record',color:'#b6b2a8',desc:'No primary zoning district in the data.'},
+};
+const R_DENSITY={1:'low density',2:'low density',3:'low density',4:'low–medium density',5:'low–medium density',6:'medium density',7:'medium density',8:'medium–high density',9:'high density',10:'high density'};
+function zoneKey(z){
+  if(!z) return 'O';
+  z=z.trim().toUpperCase();
+  if(z.startsWith('PARK')) return 'PARK';
+  if(z.startsWith('BPC')) return 'BPC';
+  const c=z.charAt(0);
+  return (c==='R'||c==='C'||c==='M')?c:'O';
+}
+function zoneLabel(z){
+  const k=zoneKey(z); const base=ZONE_CATS[k].name;
+  if(k==='R'){const m=z.match(/^R(\d+)/i); const d=m&&R_DENSITY[+m[1]]; return d?`${base} · ${d}`:base;}
+  return base;
+}
 const BORO_OF = b => ({'1':'Manhattan','2':'Bronx','3':'Brooklyn','4':'Queens','5':'Staten Island'}[String(b).charAt(0)]||'');
 const fmt = n => n.toLocaleString('en-US');
 const AGENCY = {DPR:'Parks & Recreation',HPD:'Housing Preservation & Development',NYCHA:'Housing Authority',DOE:'Education',DCAS:'Citywide Administrative Services',DEP:'Environmental Protection',DSNY:'Sanitation',DOT:'Transportation',NYPD:'Police',FDNY:'Fire',DSBS:'Small Business Services',EDC:'Economic Development Corp.',DOHMH:'Health & Mental Hygiene',ACS:'Children’s Services',DHS:'Homeless Services',HRA:'Human Resources Administration',DCLA:'Cultural Affairs',DOC:'Correction',DFTA:'Aging',NYPL:'Public Library',BPL:'Brooklyn Public Library',QPL:'Queens Public Library'};
 
 let DATA=[], map, layer, markers=[];
-const state={cats:new Set([1,2,3,4]),boro:'',agency:'',size:0,res:false,disp:false};
+const state={cats:new Set([1,2,3,4]),boro:'',agency:'',size:0,res:false,disp:false,zone:'',colorMode:'cat'};
 
 fetch('colp_map.json').then(r=>r.json()).then(d=>{DATA=d;init();});
 
@@ -228,6 +280,27 @@ function init(){
     document.getElementById('size-val').textContent=state.size?fmt(state.size)+' sq ft':'any';render();};
   document.getElementById('f-res').onchange=e=>{state.res=e.target.checked;render();};
   document.getElementById('f-disp').onchange=e=>{state.disp=e.target.checked;render();};
+  document.getElementById('f-zone').onchange=e=>{state.zone=e.target.value;render();};
+
+  // build zoning legend (counts) — shown when colour mode = zone
+  const zcounts={};DATA.forEach(x=>{const k=zoneKey(x.z);zcounts[k]=(zcounts[k]||0)+1;});
+  const zl=document.getElementById('zone-legend');
+  zl.innerHTML=Object.entries(ZONE_CATS).filter(([k])=>zcounts[k]).map(([k,z])=>
+    `<div class="zrow"><span class="dot" style="background:${z.color}"></span>
+      <span class="zname">${z.name}</span><span class="zn">${fmt(zcounts[k]||0)}</span></div>`).join('')+
+    `<div class="znote">Primary zoning district for each lot, from MapPLUTO. Manufacturing- and no-zoning lots would generally need a rezoning before housing could be built.</div>`;
+
+  // colour-mode segmented control
+  document.querySelectorAll('#colormode .seg-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      state.colorMode=btn.dataset.mode;
+      document.querySelectorAll('#colormode .seg-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      document.getElementById('cats').style.display=state.colorMode==='cat'?'block':'none';
+      document.getElementById('zone-legend').style.display=state.colorMode==='zone'?'block':'none';
+      render();
+    };
+  });
+
   buildSearchIndex();
   setupSearch();
   document.getElementById('menu-btn').onclick=()=>document.getElementById('panel').classList.toggle('open');
@@ -250,6 +323,7 @@ function pass(x){
   if(state.size&&(!x.ar||x.ar<state.size))return false;
   if(state.res&&!(x.rf>0))return false;
   if(state.disp&&!x.fc)return false;
+  if(state.zone&&zoneKey(x.z)!==state.zone)return false;
   return true;
 }
 
@@ -333,10 +407,12 @@ function render(){
   layer.clearLayers();
   const shown=DATA.filter(pass);
   const canvas=L.canvas({padding:.5});
+  const zoneMode=state.colorMode==='zone';
   shown.forEach(x=>{
-    const c=CATS[x.c].color;
-    const m=L.circleMarker([x.la,x.lo],{renderer:canvas,radius:x.c==1?4.2:3.2,
-      fillColor:c,color:'#fff',weight:.6,fillOpacity:x.c==1?.92:.72});
+    const c=zoneMode?ZONE_CATS[zoneKey(x.z)].color:CATS[x.c].color;
+    const big=x.c==1;
+    const m=L.circleMarker([x.la,x.lo],{renderer:canvas,radius:big?4.2:3.2,
+      fillColor:c,color:'#fff',weight:.6,fillOpacity:big?.92:.72});
     m.on('click',()=>m.bindPopup(popup(x),{maxWidth:280}).openPopup());
     layer.addLayer(m);
   });
@@ -353,7 +429,7 @@ function popup(x){
   g.push(['Jurisdiction',AGENCY[x.ag]?`${AGENCY[x.ag]} (${x.ag})`:x.ag||'—']);
   g.push(['Use on record',(x.ut||'—').toLowerCase().replace(/\b\w/g,l=>l.toUpperCase())]);
   if(x.ar)g.push(['Lot size',`${fmt(x.ar)} sq ft`]);
-  if(x.z)g.push(['Zoning',x.z]);
+  g.push(['Zoning',x.z?`${x.z} — ${zoneLabel(x.z)}`:'None on record']);
   if(x.le)g.push(['Tenure','Leased by the city']);
   if(x.fc)g.push(['Flag','Possible disposition']);
   let cap='';
