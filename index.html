@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The city's own land — a map of New York City's public parcels</title>
 <meta name="description" content="An interactive map of the 17,298 parcels New York City owns or leases, sorted by how ready each site is for housing.">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   :root{
     --nouse:#e0533a; --resi:#3f6fb0; --other:#9a8c7a; --cult:#4e9d6c;
@@ -15,7 +16,6 @@
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;font-family:var(--sans);color:var(--ink);background:var(--bg)}
   #app{display:flex;height:100vh;overflow:hidden}
-  /* Sidebar */
   #panel{width:360px;flex:0 0 360px;height:100%;overflow-y:auto;background:var(--paper);
     border-right:1px solid var(--line);padding:0 0 40px}
   .pad{padding:20px 22px}
@@ -25,7 +25,6 @@
   .sub{font-size:13.5px;line-height:1.5;color:var(--muted);margin:0}
   .divide{border:0;border-top:1px solid var(--line);margin:0}
   .sec-h{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 12px}
-  /* Legend / category toggles */
   .cat{display:flex;align-items:flex-start;gap:11px;padding:9px 0;cursor:pointer;user-select:none}
   .cat:not(:last-child){border-bottom:1px solid var(--line)}
   .dot{width:14px;height:14px;border-radius:50%;flex:0 0 14px;margin-top:2px}
@@ -46,7 +45,6 @@
   .zrow .zn{margin-left:auto;font-size:12px;color:var(--muted)}
   #zone-legend .znote{font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:9px}
   .cat-desc{font-size:11.5px;color:var(--muted);line-height:1.35;margin-top:2px}
-  /* Controls */
   label.fld{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 5px}
   select,input[type=search]{width:100%;padding:8px 10px;font-size:13px;font-family:inherit;
     border:1px solid var(--line);border-radius:6px;background:#fbfaf7;color:var(--ink)}
@@ -78,16 +76,27 @@
   .foot p{margin:0 0 9px}
   /* Map */
   #map-wrap{flex:1;position:relative}
-  #map{position:absolute;inset:0;background:#dfe7ea}
-  /* AI caution */
-  #ai-btn{position:absolute;top:12px;right:12px;z-index:900;background:#7a1f1f;color:#fff;border:none;
-    padding:7px 12px;font-size:11px;font-weight:700;letter-spacing:.05em;border-radius:6px;cursor:pointer;
-    text-transform:uppercase;box-shadow:0 1px 5px rgba(0,0,0,.25)}
+  #map{position:absolute;inset:0;background:#e8ebe6}
+  /* Map buttons */
+  .mapbtn{position:absolute;z-index:900;background:var(--paper);border:1px solid var(--line);
+    border-radius:6px;padding:8px 12px;font-weight:700;font-size:12.5px;font-family:inherit;
+    box-shadow:0 1px 5px rgba(0,0,0,.2);cursor:pointer;color:var(--ink)}
+  #d3-btn{top:12px;left:12px}
+  #d3-btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  #ai-btn{top:12px;right:12px;background:#7a1f1f;color:#fff;border:none;
+    padding:7px 12px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;box-shadow:0 1px 5px rgba(0,0,0,.25)}
   #ai-pop{position:absolute;top:48px;right:12px;z-index:900;width:300px;background:#12233f;color:#e8edf5;
     padding:16px 18px;border-radius:9px;font-size:12.5px;line-height:1.55;display:none;box-shadow:0 6px 24px rgba(0,0,0,.35)}
   #ai-pop.show{display:block}
   #ai-pop b{color:#fff}
-  .leaflet-popup-content{margin:13px 15px;font-family:var(--sans);font-size:13px;line-height:1.5}
+  #d3-cap{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:850;
+    background:rgba(20,20,20,.82);color:#fff;font-size:11.5px;padding:6px 13px;border-radius:20px;
+    display:none;pointer-events:none;white-space:nowrap}
+  #d3-cap.show{display:block}
+  #d3-cap b{color:#ffb59e}
+  /* Popup */
+  .maplibregl-popup-content{font-family:var(--sans);font-size:13px;line-height:1.5;padding:13px 16px;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.22)}
+  .maplibregl-popup-close-button{font-size:17px;padding:2px 6px 0 0;color:var(--muted)}
   .pop-name{font-weight:800;font-size:14px;margin-bottom:2px}
   .pop-badge{display:inline-block;font-size:10.5px;font-weight:700;color:#fff;padding:2px 7px;border-radius:4px;margin:5px 0 8px;text-transform:uppercase;letter-spacing:.04em}
   .pop-grid{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12.5px}
@@ -103,9 +112,8 @@
       transform:translateX(-100%);transition:transform .25s;box-shadow:2px 0 20px rgba(0,0,0,.25)}
     #panel.open{transform:translateX(0)}
     #map-wrap{flex:1;height:100vh}
-    #menu-btn{display:block;position:absolute;top:12px;left:12px;z-index:900;background:var(--paper);
-      border:1px solid var(--line);border-radius:6px;padding:9px 13px;font-weight:700;font-size:13px;
-      box-shadow:0 1px 5px rgba(0,0,0,.2);cursor:pointer}
+    #menu-btn{display:block;top:12px;left:12px}
+    #d3-btn{top:12px;left:108px}
   }
 </style>
 </head>
@@ -179,23 +187,24 @@
     <div class="pad foot">
       <div class="sec-h">About this map</div>
       <p>Inspired by the NYU Furman Center's <a class="link" href="https://www.furmancenter.org/publication/what-new-interactive-maps-reveal-about-the-development-potential-of-new-york-citys-city-owned-land/" target="_blank" rel="noopener">interactive maps</a> of city-owned land and the Mamdani administration's LIFT task force goal of 25,000 homes on public land.</p>
-      <p>Data: Department of City Planning <b>City Owned and Leased Properties (COLP)</b> joined to <b>MapPLUTO</b> for lot size and zoning, via NYC Open Data.</p>
+      <p>Data: Department of City Planning <b>City Owned and Leased Properties (COLP)</b> joined to <b>MapPLUTO</b> for lot size, zoning and lot shapes, via NYC Open Data.</p>
       <p><a class="link" href="methodology.html" target="_blank">Full methodology, categories and caveats →</a></p>
     </div>
   </aside>
 
   <div id="map-wrap">
-    <button id="menu-btn">☰ Filters</button>
-    <button id="ai-btn">⚠ AI caution</button>
+    <button id="menu-btn" class="mapbtn">☰ Filters</button>
+    <button id="d3-btn" class="mapbtn" title="Toggle 3D development-capacity view">◨ 3D capacity</button>
+    <button id="ai-btn" class="mapbtn">⚠ AI caution</button>
     <div id="ai-pop">
       <b>Made with AI assistance.</b><br>
-      This map was built by joining public city datasets with an AI coding assistant. The categories are a simplification of a complex reality — a lot's true development potential depends on soil, easements, existing tenants, community plans and politics that no dataset fully captures. Treat the "no current use" and capacity figures as a starting point for reporting, not a buildable-sites list. Verify any specific parcel against primary records before relying on it.
+      This map was built by joining public city datasets with an AI coding assistant. The categories are a simplification of a complex reality — a lot's true development potential depends on soil, easements, existing tenants, community plans and politics that no dataset fully captures. The 3D "capacity" is a rough zoning-based estimate, not a design. Treat everything here as a starting point for reporting, not a buildable-sites list. Verify any specific parcel against primary records before relying on it.
     </div>
+    <div id="d3-cap">Building height shows <b>zoned residential capacity</b> (floor-area ratio) · drag to rotate</div>
     <div id="map"></div>
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const CATS = {
   1:{name:'No current use',color:'#e0533a',desc:'Vacant land or structures not in active use — the clearest housing opportunity.'},
@@ -203,8 +212,6 @@ const CATS = {
   3:{name:'Other active use',color:'#9a8c7a',desc:'Offices, schools, depots, courts and infrastructure in daily use.'},
   4:{name:'Parks & recreation',color:'#4e9d6c',desc:'Parks, playgrounds and ballfields — mostly protected from development.'},
 };
-// Zoning families (NYC): R residential, C commercial, M manufacturing,
-// PARK mapped parkland, BPC Battery Park City, O none/other.
 const ZONE_CATS = {
   R:{name:'Residential',color:'#e8b53a',desc:'Housing allowed as-of-right.'},
   C:{name:'Commercial',color:'#d9534f',desc:'Shops, offices; often allows housing too.'},
@@ -213,6 +220,7 @@ const ZONE_CATS = {
   BPC:{name:'Battery Park City',color:'#3aa6a0',desc:'Special state-run district.'},
   O:{name:'No zoning on record',color:'#b6b2a8',desc:'No primary zoning district in the data.'},
 };
+const ZKI={R:0,C:1,M:2,PARK:3,BPC:4,O:5};              // key → numeric (matches lots.geojson)
 const R_DENSITY={1:'low density',2:'low density',3:'low density',4:'low–medium density',5:'low–medium density',6:'medium density',7:'medium density',8:'medium–high density',9:'high density',10:'high density'};
 function zoneKey(z){
   if(!z) return 'O';
@@ -222,6 +230,7 @@ function zoneKey(z){
   const c=z.charAt(0);
   return (c==='R'||c==='C'||c==='M')?c:'O';
 }
+function zki(z){return ZKI[zoneKey(z)];}
 function zoneLabel(z){
   const k=zoneKey(z); const base=ZONE_CATS[k].name;
   if(k==='R'){const m=z.match(/^R(\d+)/i); const d=m&&R_DENSITY[+m[1]]; return d?`${base} · ${d}`:base;}
@@ -231,103 +240,113 @@ const BORO_OF = b => ({'1':'Manhattan','2':'Bronx','3':'Brooklyn','4':'Queens','
 const fmt = n => n.toLocaleString('en-US');
 const AGENCY = {DPR:'Parks & Recreation',HPD:'Housing Preservation & Development',NYCHA:'Housing Authority',DOE:'Education',DCAS:'Citywide Administrative Services',DEP:'Environmental Protection',DSNY:'Sanitation',DOT:'Transportation',NYPD:'Police',FDNY:'Fire',DSBS:'Small Business Services',EDC:'Economic Development Corp.',DOHMH:'Health & Mental Hygiene',ACS:'Children’s Services',DHS:'Homeless Services',HRA:'Human Resources Administration',DCLA:'Cultural Affairs',DOC:'Correction',DFTA:'Aging',NYPL:'Public Library',BPL:'Brooklyn Public Library',QPL:'Queens Public Library'};
 
-let DATA=[], map, layer, markers=[];
-let GEOM=null, geomLoading=false, wasPoly=false;
-const POLY_ZOOM=15; // at this zoom and closer, draw real lot polygons instead of dots
-const state={cats:new Set([1,2,3,4]),boro:'',agency:'',size:0,res:false,disp:false,zone:'',colorMode:'cat'};
+// colour + height expressions (MapLibre)
+const CAT_COLOR=['match',['get','c'],1,'#e0533a',2,'#3f6fb0',3,'#9a8c7a',4,'#4e9d6c','#999999'];
+const ZONE_COLOR=['match',['get','zk'],0,'#e8b53a',1,'#d9534f',2,'#7e6cb0',3,'#4e9d6c',4,'#3aa6a0','#b6b2a8'];
+const HEIGHT=['max',['*',['coalesce',['get','rf'],0],13],4];   // ~metres: FAR × 13, min 4m slab
+function colorExpr(){return state.colorMode==='zone'?ZONE_COLOR:CAT_COLOR;}
 
-fetch('colp_map.json').then(r=>r.json()).then(d=>{DATA=d;init();});
+const POLY_ZOOM=15;
+let DATA=[], BYBBL={}, map, lotsLoaded=false, lotsLoading=false;
+const state={cats:new Set([1,2,3,4]),boro:'',agency:'',size:0,res:false,disp:false,zone:'',colorMode:'cat',d3:false};
 
-function ensureGeom(){
-  if(GEOM||geomLoading) return;
-  geomLoading=true;
-  fetch('geom.json').then(r=>r.json()).then(g=>{GEOM=g;geomLoading=false;
-    if(map.getZoom()>=POLY_ZOOM) render();});
-}
+fetch('colp_map.json').then(r=>r.json()).then(d=>{DATA=d;DATA.forEach(x=>BYBBL[x.b]=x);init();});
 
-function estUnits(p){ // rough as-of-right residential capacity
-  if(!p.ar||!p.rf||p.rf<=0) return 0;
-  return Math.floor((p.ar*p.rf)/1000);
-}
+function estUnits(p){ if(!p.ar||!p.rf||p.rf<=0) return 0; return Math.floor((p.ar*p.rf)/1000); }
 
 function init(){
-  map=L.map('map',{preferCanvas:true,zoomControl:false}).setView([40.702,-73.95],11);
-  L.control.zoom({position:'bottomleft'}).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
-    attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
-  layer=L.layerGroup().addTo(map);
+  map=new maplibregl.Map({
+    container:'map',
+    style:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    center:[-73.95,40.702], zoom:10.4, maxZoom:19, minZoom:9,
+    maxPitch:70, attributionControl:{compact:true}
+  });
   window.map=map;
-  // hybrid dots↔polygons: load lot shapes on first zoom-in, re-render in-view polygons on pan/zoom
-  map.on('moveend',()=>{
-    if(map.getZoom()>=POLY_ZOOM){ ensureGeom(); render(); }
-    else if(wasPoly){ render(); }
-  });
-  window.addEventListener('resize',()=>map.invalidateSize());
-  setTimeout(()=>map.invalidateSize(),250);
+  map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-left');
+  map.on('load',onMapLoad);
+  buildSidebar();
+}
 
-  // build category legend
-  const cw=document.getElementById('cats');
-  Object.entries(CATS).forEach(([id,c])=>{
-    const n=DATA.filter(x=>x.c==id).length;
-    const el=document.createElement('div');el.className='cat';el.dataset.id=id;
-    el.innerHTML=`<span class="dot" style="background:${c.color};box-shadow:0 0 0 3px ${c.color}22"></span>
-      <div class="cat-body"><div class="cat-name">${c.name}</div>
-      <div class="cat-count">${fmt(n)} parcels</div>
-      <div class="cat-desc">${c.desc}</div></div>`;
-    el.onclick=()=>{const i=+id; el.classList.toggle('off');
-      if(state.cats.has(i))state.cats.delete(i);else state.cats.add(i);render();};
-    cw.appendChild(el);
-  });
+function pointsGeoJSON(){
+  return {type:'FeatureCollection',features:DATA.map(x=>({
+    type:'Feature',geometry:{type:'Point',coordinates:[x.lo,x.la]},
+    properties:{b:x.b,c:x.c,zk:zki(x.z),bo:+String(x.b).charAt(0),ag:x.ag||'',ar:x.ar||0,rf:x.rf||0,fc:x.fc||0}
+  }))};
+}
 
-  // boroughs & agencies
-  const bs=document.getElementById('f-boro');
-  ['1','2','3','4','5'].forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=BORO_OF(b);bs.appendChild(o);});
-  const agCounts={};DATA.forEach(x=>{if(x.ag)agCounts[x.ag]=(agCounts[x.ag]||0)+1;});
-  const as=document.getElementById('f-agency');
-  Object.keys(agCounts).sort((a,b)=>agCounts[b]-agCounts[a]).forEach(a=>{
-    const o=document.createElement('option');o.value=a;
-    o.textContent=`${AGENCY[a]?AGENCY[a]+' ('+a+')':a} — ${fmt(agCounts[a])}`;as.appendChild(o);});
+function onMapLoad(){
+  map.addSource('pts',{type:'geojson',data:pointsGeoJSON()});
+  map.addLayer({id:'pts-dot',type:'circle',source:'pts',maxzoom:POLY_ZOOM,
+    paint:{'circle-color':colorExpr(),
+      'circle-radius':['interpolate',['linear'],['zoom'],10,2.1,14,4.6],
+      'circle-stroke-color':'#ffffff','circle-stroke-width':0.5,'circle-opacity':0.9}});
+  map.addSource('hi',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'hi-ring',type:'circle',source:'hi',
+    paint:{'circle-radius':12,'circle-color':'rgba(0,0,0,0)','circle-stroke-color':'#111','circle-stroke-width':2.2}});
+  wireLayer('pts-dot');
+  applyFilter();
+  map.on('moveend',()=>{ maybeLoadLots(); updateShowing(); });
+  maybeLoadLots();
+}
 
-  bs.onchange=e=>{state.boro=e.target.value;render();};
-  as.onchange=e=>{state.agency=e.target.value;render();};
-  document.getElementById('f-size').oninput=e=>{state.size=+e.target.value;
-    document.getElementById('size-val').textContent=state.size?fmt(state.size)+' sq ft':'any';render();};
-  document.getElementById('f-res').onchange=e=>{state.res=e.target.checked;render();};
-  document.getElementById('f-disp').onchange=e=>{state.disp=e.target.checked;render();};
-  document.getElementById('f-zone').onchange=e=>{state.zone=e.target.value;render();};
+function maybeLoadLots(){
+  if(lotsLoaded||lotsLoading) return;
+  if(!(state.d3 || map.getZoom()>=POLY_ZOOM)) return;
+  lotsLoading=true;
+  fetch('lots.geojson').then(r=>r.json()).then(gj=>{
+    map.addSource('lots',{type:'geojson',data:gj});
+    map.addLayer({id:'lots-fill',type:'fill',source:'lots',minzoom:POLY_ZOOM,
+      paint:{'fill-color':colorExpr(),'fill-opacity':['match',['get','c'],1,0.6,0.42]}},'hi-ring');
+    map.addLayer({id:'lots-line',type:'line',source:'lots',minzoom:POLY_ZOOM,
+      paint:{'line-color':'#2a2a2a','line-width':0.5,'line-opacity':0.45}},'hi-ring');
+    map.addLayer({id:'lots-3d',type:'fill-extrusion',source:'lots',
+      layout:{visibility:state.d3?'visible':'none'},
+      paint:{'fill-extrusion-color':colorExpr(),'fill-extrusion-height':HEIGHT,
+        'fill-extrusion-base':0,'fill-extrusion-opacity':0.86}},'hi-ring');
+    lotsLoaded=true;lotsLoading=false;
+    wireLayer('lots-fill'); wireLayer('lots-3d');
+    applyFilter(); applyColor(); updateVisibility();
+  }).catch(e=>{lotsLoading=false;console.error('lots load failed',e);});
+}
 
-  // build zoning legend (counts) — shown when colour mode = zone
-  const zcounts={};DATA.forEach(x=>{const k=zoneKey(x.z);zcounts[k]=(zcounts[k]||0)+1;});
-  const zl=document.getElementById('zone-legend');
-  zl.innerHTML=Object.entries(ZONE_CATS).filter(([k])=>zcounts[k]).map(([k,z])=>
-    `<div class="zrow"><span class="dot" style="background:${z.color}"></span>
-      <span class="zname">${z.name}</span><span class="zn">${fmt(zcounts[k]||0)}</span></div>`).join('')+
-    `<div class="znote">Primary zoning district for each lot, from MapPLUTO. Manufacturing- and no-zoning lots would generally need a rezoning before housing could be built.</div>`;
+function wireLayer(id){
+  map.on('click',id,onFeatureClick);
+  map.on('mouseenter',id,()=>map.getCanvas().style.cursor='pointer');
+  map.on('mouseleave',id,()=>map.getCanvas().style.cursor='');
+}
+function onFeatureClick(e){
+  const x=BYBBL[e.features[0].properties.b]; if(!x) return;
+  new maplibregl.Popup({maxWidth:'280px'}).setLngLat(e.lngLat).setHTML(popup(x)).addTo(map);
+}
 
-  // colour-mode segmented control
-  document.querySelectorAll('#colormode .seg-btn').forEach(btn=>{
-    btn.onclick=()=>{
-      state.colorMode=btn.dataset.mode;
-      document.querySelectorAll('#colormode .seg-btn').forEach(b=>b.classList.toggle('active',b===btn));
-      document.getElementById('cats').style.display=state.colorMode==='cat'?'block':'none';
-      document.getElementById('zone-legend').style.display=state.colorMode==='zone'?'block':'none';
-      render();
-    };
-  });
-
-  buildSearchIndex();
-  setupSearch();
-  document.getElementById('menu-btn').onclick=()=>document.getElementById('panel').classList.toggle('open');
-  document.getElementById('ai-btn').onclick=()=>document.getElementById('ai-pop').classList.toggle('show');
-
-  // headline stats
-  const nouse=DATA.filter(x=>x.c==1);
-  const acres=nouse.reduce((s,x)=>s+(x.ar||0),0)/43560;
-  document.getElementById('s-nouse').textContent=fmt(nouse.length);
-  document.getElementById('s-acres').textContent=fmt(Math.round(acres));
-  document.getElementById('hdr-total').textContent=fmt(DATA.length);
-
-  render();
+function filterExpr(){
+  const f=['all',['in',['get','c'],['literal',[...state.cats]]]];
+  if(state.boro)   f.push(['==',['get','bo'],+state.boro]);
+  if(state.agency) f.push(['==',['get','ag'],state.agency]);
+  if(state.size)   f.push(['>=',['get','ar'],state.size]);
+  if(state.res)    f.push(['>',['get','rf'],0]);
+  if(state.disp)   f.push(['==',['get','fc'],1]);
+  if(state.zone)   f.push(['==',['get','zk'],ZKI[state.zone]]);
+  return f;
+}
+function applyFilter(){
+  const f=filterExpr();
+  ['pts-dot','lots-fill','lots-line','lots-3d'].forEach(id=>{ if(map.getLayer(id)) map.setFilter(id,f); });
+  updateShowing();
+}
+function applyColor(){
+  const c=colorExpr();
+  if(map.getLayer('pts-dot'))  map.setPaintProperty('pts-dot','circle-color',c);
+  if(map.getLayer('lots-fill')) map.setPaintProperty('lots-fill','fill-color',c);
+  if(map.getLayer('lots-3d'))  map.setPaintProperty('lots-3d','fill-extrusion-color',c);
+}
+function updateVisibility(){
+  const d3=state.d3;
+  const set=(id,v)=>{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility',v); };
+  set('pts-dot',   d3?'none':'visible');
+  set('lots-fill', d3?'none':'visible');
+  set('lots-line', d3?'none':'visible');
+  set('lots-3d',   d3?'visible':'none');
 }
 
 function pass(x){
@@ -340,9 +359,89 @@ function pass(x){
   if(state.zone&&zoneKey(x.z)!==state.zone)return false;
   return true;
 }
+function updateShowing(){
+  const shown=DATA.filter(pass), su=shown.filter(x=>x.c==1).length;
+  let hint='';
+  if(state.d3) hint=` · <span style="color:var(--muted)">drag to rotate · height = capacity</span>`;
+  else if(map&&map.getZoom()<POLY_ZOOM) hint=` · <span style="color:var(--muted)">zoom in for lot shapes</span>`;
+  document.getElementById('showing').innerHTML=
+    `Showing <b>${fmt(shown.length)}</b> of ${fmt(DATA.length)} parcels`+
+    (su?` — <b>${fmt(su)}</b> with no current use`:``)+hint;
+}
+
+function toggle3D(){
+  state.d3=!state.d3;
+  document.getElementById('d3-btn').classList.toggle('on',state.d3);
+  document.getElementById('d3-cap').classList.toggle('show',state.d3);
+  maybeLoadLots();
+  if(state.d3) map.easeTo({pitch:55,zoom:Math.max(map.getZoom(),14.2),duration:850});
+  else map.easeTo({pitch:0,bearing:0,duration:600});
+  updateVisibility(); updateShowing();
+}
+
+function buildSidebar(){
+  const cw=document.getElementById('cats');
+  Object.entries(CATS).forEach(([id,c])=>{
+    const n=DATA.filter(x=>x.c==id).length;
+    const el=document.createElement('div');el.className='cat';el.dataset.id=id;
+    el.innerHTML=`<span class="dot" style="background:${c.color};box-shadow:0 0 0 3px ${c.color}22"></span>
+      <div class="cat-body"><div class="cat-name">${c.name}</div>
+      <div class="cat-count">${fmt(n)} parcels</div>
+      <div class="cat-desc">${c.desc}</div></div>`;
+    el.onclick=()=>{const i=+id; el.classList.toggle('off');
+      if(state.cats.has(i))state.cats.delete(i);else state.cats.add(i);applyFilter();};
+    cw.appendChild(el);
+  });
+
+  const bs=document.getElementById('f-boro');
+  ['1','2','3','4','5'].forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=BORO_OF(b);bs.appendChild(o);});
+  const agCounts={};DATA.forEach(x=>{if(x.ag)agCounts[x.ag]=(agCounts[x.ag]||0)+1;});
+  const as=document.getElementById('f-agency');
+  Object.keys(agCounts).sort((a,b)=>agCounts[b]-agCounts[a]).forEach(a=>{
+    const o=document.createElement('option');o.value=a;
+    o.textContent=`${AGENCY[a]?AGENCY[a]+' ('+a+')':a} — ${fmt(agCounts[a])}`;as.appendChild(o);});
+
+  bs.onchange=e=>{state.boro=e.target.value;applyFilter();};
+  as.onchange=e=>{state.agency=e.target.value;applyFilter();};
+  document.getElementById('f-size').oninput=e=>{state.size=+e.target.value;
+    document.getElementById('size-val').textContent=state.size?fmt(state.size)+' sq ft':'any';applyFilter();};
+  document.getElementById('f-res').onchange=e=>{state.res=e.target.checked;applyFilter();};
+  document.getElementById('f-disp').onchange=e=>{state.disp=e.target.checked;applyFilter();};
+  document.getElementById('f-zone').onchange=e=>{state.zone=e.target.value;applyFilter();};
+
+  const zcounts={};DATA.forEach(x=>{const k=zoneKey(x.z);zcounts[k]=(zcounts[k]||0)+1;});
+  const zl=document.getElementById('zone-legend');
+  zl.innerHTML=Object.entries(ZONE_CATS).filter(([k])=>zcounts[k]).map(([k,z])=>
+    `<div class="zrow"><span class="dot" style="background:${z.color}"></span>
+      <span class="zname">${z.name}</span><span class="zn">${fmt(zcounts[k]||0)}</span></div>`).join('')+
+    `<div class="znote">Primary zoning district for each lot, from MapPLUTO. Manufacturing- and no-zoning lots would generally need a rezoning before housing could be built.</div>`;
+
+  document.querySelectorAll('#colormode .seg-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      state.colorMode=btn.dataset.mode;
+      document.querySelectorAll('#colormode .seg-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      document.getElementById('cats').style.display=state.colorMode==='cat'?'block':'none';
+      document.getElementById('zone-legend').style.display=state.colorMode==='zone'?'block':'none';
+      applyColor();
+    };
+  });
+
+  buildSearchIndex();
+  setupSearch();
+  document.getElementById('menu-btn').onclick=()=>document.getElementById('panel').classList.toggle('open');
+  document.getElementById('ai-btn').onclick=()=>document.getElementById('ai-pop').classList.toggle('show');
+  document.getElementById('d3-btn').onclick=toggle3D;
+
+  const nouse=DATA.filter(x=>x.c==1);
+  const acres=nouse.reduce((s,x)=>s+(x.ar||0),0)/43560;
+  document.getElementById('s-nouse').textContent=fmt(nouse.length);
+  document.getElementById('s-acres').textContent=fmt(Math.round(acres));
+  document.getElementById('hdr-total').textContent=fmt(DATA.length);
+  updateShowing();
+}
 
 // ---- Address / site autocomplete ----
-let SEARCH_IDX=[], acItems=[], acIdx=-1, acT=null, searchHi=null;
+let SEARCH_IDX=[], acItems=[], acIdx=-1, acT=null;
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function buildSearchIndex(){
   SEARCH_IDX=[];
@@ -376,7 +475,6 @@ function runSearch(q){
     if(r>=0)scored.push({it,r});
   }
   scored.sort((a,b)=>a.r-b.r||a.it.label.length-b.it.label.length||(b.it.x.ar||0)-(a.it.x.ar||0));
-  // collapse parcels that share a name, borough and category (e.g. a park on many lots)
   const seen=new Set(); acItems=[];
   for(const s of scored){
     const x=s.it.x, key=s.it.lc+'|'+BORO_OF(x.b)+'|'+x.c;
@@ -409,53 +507,13 @@ function chooseAC(i){
   flyToParcel(it.x);
 }
 function flyToParcel(x){
-  if(!state.cats.has(x.c)){state.cats.add(x.c);const el=document.querySelector(`.cat[data-id="${x.c}"]`);if(el)el.classList.remove('off');render();}
+  if(!state.cats.has(x.c)){state.cats.add(x.c);const el=document.querySelector(`.cat[data-id="${x.c}"]`);if(el)el.classList.remove('off');applyFilter();}
   document.getElementById('panel').classList.remove('open');
-  map.flyTo([x.la,x.lo],16,{duration:.9});
-  if(searchHi){map.removeLayer(searchHi);searchHi=null;}
-  searchHi=L.circleMarker([x.la,x.lo],{radius:14,color:'#111',weight:2,fill:false,opacity:.85}).addTo(map);
-  L.popup({maxWidth:280,autoPan:true}).setLatLng([x.la,x.lo]).setContent(popup(x)).openOn(map);
-}
-
-function colorOf(x){return state.colorMode==='zone'?ZONE_CATS[zoneKey(x.z)].color:CATS[x.c].color;}
-
-function render(){
-  layer.clearLayers();
-  const shown=DATA.filter(pass);
-  const canvas=L.canvas({padding:.5});
-  const polyMode=map.getZoom()>=POLY_ZOOM && GEOM;
-  wasPoly=polyMode;
-  if(polyMode){
-    const b=map.getBounds().pad(0.25);
-    for(const x of shown){
-      if(!b.contains([x.la,x.lo])) continue;   // only draw lots near the viewport
-      const g=GEOM[x.b], c=colorOf(x);
-      if(g){
-        const feat={type:'Feature',geometry:{type:g.t==='P'?'Polygon':'MultiPolygon',coordinates:g.c}};
-        const gl=L.geoJSON(feat,{renderer:canvas,
-          style:{color:'#2a2a2a',weight:.7,fillColor:c,fillOpacity:x.c==1?.62:.45}});
-        gl.bindPopup(popup(x),{maxWidth:280});
-        layer.addLayer(gl);
-      }else{ // condo / air-rights lots with no own shape → keep a dot
-        const m=L.circleMarker([x.la,x.lo],{renderer:canvas,radius:5,fillColor:c,color:'#fff',weight:.6,fillOpacity:.85});
-        m.bindPopup(popup(x),{maxWidth:280});
-        layer.addLayer(m);
-      }
-    }
-  }else{
-    shown.forEach(x=>{
-      const c=colorOf(x), big=x.c==1;
-      const m=L.circleMarker([x.la,x.lo],{renderer:canvas,radius:big?4.2:3.2,
-        fillColor:c,color:'#fff',weight:.6,fillOpacity:big?.92:.72});
-      m.on('click',()=>m.bindPopup(popup(x),{maxWidth:280}).openPopup());
-      layer.addLayer(m);
-    });
-  }
-  const su=shown.filter(x=>x.c==1).length;
-  document.getElementById('showing').innerHTML=
-    `Showing <b>${fmt(shown.length)}</b> of ${fmt(DATA.length)} parcels`+
-    (su?` — <b>${fmt(su)}</b> with no current use`:``)+
-    (polyMode?'':` · <span style="color:var(--muted)">zoom in for lot shapes</span>`);
+  maybeLoadLots();
+  map.flyTo({center:[x.lo,x.la],zoom:16.5,duration:900,pitch:state.d3?55:map.getPitch()});
+  if(map.getSource('hi')) map.getSource('hi').setData({type:'FeatureCollection',
+    features:[{type:'Feature',geometry:{type:'Point',coordinates:[x.lo,x.la]},properties:{}}]});
+  new maplibregl.Popup({maxWidth:'280px'}).setLngLat([x.lo,x.la]).setHTML(popup(x)).addTo(map);
 }
 
 function popup(x){
