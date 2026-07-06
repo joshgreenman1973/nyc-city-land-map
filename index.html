@@ -232,9 +232,18 @@ const fmt = n => n.toLocaleString('en-US');
 const AGENCY = {DPR:'Parks & Recreation',HPD:'Housing Preservation & Development',NYCHA:'Housing Authority',DOE:'Education',DCAS:'Citywide Administrative Services',DEP:'Environmental Protection',DSNY:'Sanitation',DOT:'Transportation',NYPD:'Police',FDNY:'Fire',DSBS:'Small Business Services',EDC:'Economic Development Corp.',DOHMH:'Health & Mental Hygiene',ACS:'Children’s Services',DHS:'Homeless Services',HRA:'Human Resources Administration',DCLA:'Cultural Affairs',DOC:'Correction',DFTA:'Aging',NYPL:'Public Library',BPL:'Brooklyn Public Library',QPL:'Queens Public Library'};
 
 let DATA=[], map, layer, markers=[];
+let GEOM=null, geomLoading=false, wasPoly=false;
+const POLY_ZOOM=15; // at this zoom and closer, draw real lot polygons instead of dots
 const state={cats:new Set([1,2,3,4]),boro:'',agency:'',size:0,res:false,disp:false,zone:'',colorMode:'cat'};
 
 fetch('colp_map.json').then(r=>r.json()).then(d=>{DATA=d;init();});
+
+function ensureGeom(){
+  if(GEOM||geomLoading) return;
+  geomLoading=true;
+  fetch('geom.json').then(r=>r.json()).then(g=>{GEOM=g;geomLoading=false;
+    if(map.getZoom()>=POLY_ZOOM) render();});
+}
 
 function estUnits(p){ // rough as-of-right residential capacity
   if(!p.ar||!p.rf||p.rf<=0) return 0;
@@ -248,6 +257,11 @@ function init(){
     attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
   layer=L.layerGroup().addTo(map);
   window.map=map;
+  // hybrid dots↔polygons: load lot shapes on first zoom-in, re-render in-view polygons on pan/zoom
+  map.on('moveend',()=>{
+    if(map.getZoom()>=POLY_ZOOM){ ensureGeom(); render(); }
+    else if(wasPoly){ render(); }
+  });
   window.addEventListener('resize',()=>map.invalidateSize());
   setTimeout(()=>map.invalidateSize(),250);
 
@@ -403,23 +417,45 @@ function flyToParcel(x){
   L.popup({maxWidth:280,autoPan:true}).setLatLng([x.la,x.lo]).setContent(popup(x)).openOn(map);
 }
 
+function colorOf(x){return state.colorMode==='zone'?ZONE_CATS[zoneKey(x.z)].color:CATS[x.c].color;}
+
 function render(){
   layer.clearLayers();
   const shown=DATA.filter(pass);
   const canvas=L.canvas({padding:.5});
-  const zoneMode=state.colorMode==='zone';
-  shown.forEach(x=>{
-    const c=zoneMode?ZONE_CATS[zoneKey(x.z)].color:CATS[x.c].color;
-    const big=x.c==1;
-    const m=L.circleMarker([x.la,x.lo],{renderer:canvas,radius:big?4.2:3.2,
-      fillColor:c,color:'#fff',weight:.6,fillOpacity:big?.92:.72});
-    m.on('click',()=>m.bindPopup(popup(x),{maxWidth:280}).openPopup());
-    layer.addLayer(m);
-  });
+  const polyMode=map.getZoom()>=POLY_ZOOM && GEOM;
+  wasPoly=polyMode;
+  if(polyMode){
+    const b=map.getBounds().pad(0.25);
+    for(const x of shown){
+      if(!b.contains([x.la,x.lo])) continue;   // only draw lots near the viewport
+      const g=GEOM[x.b], c=colorOf(x);
+      if(g){
+        const feat={type:'Feature',geometry:{type:g.t==='P'?'Polygon':'MultiPolygon',coordinates:g.c}};
+        const gl=L.geoJSON(feat,{renderer:canvas,
+          style:{color:'#2a2a2a',weight:.7,fillColor:c,fillOpacity:x.c==1?.62:.45}});
+        gl.bindPopup(popup(x),{maxWidth:280});
+        layer.addLayer(gl);
+      }else{ // condo / air-rights lots with no own shape → keep a dot
+        const m=L.circleMarker([x.la,x.lo],{renderer:canvas,radius:5,fillColor:c,color:'#fff',weight:.6,fillOpacity:.85});
+        m.bindPopup(popup(x),{maxWidth:280});
+        layer.addLayer(m);
+      }
+    }
+  }else{
+    shown.forEach(x=>{
+      const c=colorOf(x), big=x.c==1;
+      const m=L.circleMarker([x.la,x.lo],{renderer:canvas,radius:big?4.2:3.2,
+        fillColor:c,color:'#fff',weight:.6,fillOpacity:big?.92:.72});
+      m.on('click',()=>m.bindPopup(popup(x),{maxWidth:280}).openPopup());
+      layer.addLayer(m);
+    });
+  }
   const su=shown.filter(x=>x.c==1).length;
   document.getElementById('showing').innerHTML=
     `Showing <b>${fmt(shown.length)}</b> of ${fmt(DATA.length)} parcels`+
-    (su?` — <b>${fmt(su)}</b> with no current use`:``);
+    (su?` — <b>${fmt(su)}</b> with no current use`:``)+
+    (polyMode?'':` · <span style="color:var(--muted)">zoom in for lot shapes</span>`);
 }
 
 function popup(x){
