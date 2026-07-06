@@ -1,6 +1,6 @@
 # The city's own land
 
-An interactive map of the **17,298 parcels New York City owns or leases**, sorted by how ready each site is to become housing.
+An interactive map of the **15,188 tax lots New York City owns or leases**, sorted by how ready each site is to become housing.
 
 Inspired by the NYU Furman Center's [interactive maps of city-owned land](https://www.furmancenter.org/publication/what-new-interactive-maps-reveal-about-the-development-potential-of-new-york-citys-city-owned-land/) and the Mamdani administration's LIFT task force goal of building 25,000 homes on public land.
 

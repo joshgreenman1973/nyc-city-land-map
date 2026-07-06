@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The city's own land — a map of New York City's public parcels</title>
-<meta name="description" content="An interactive map of the 17,298 parcels New York City owns or leases, sorted by how ready each site is for housing.">
+<meta name="description" content="An interactive map of the 15,188 tax lots New York City owns or leases, sorted by how ready each site is for housing.">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
@@ -123,13 +123,13 @@
     <header class="pad">
       <div class="kicker">New York City open data</div>
       <h1>The city's own land</h1>
-      <p class="sub">Every one of the <b id="hdr-total">17,298</b> parcels the city owns or leases, sorted by how ready each site is to become housing.</p>
+      <p class="sub">Every one of the <b id="hdr-total">15,188</b> tax lots the city owns or leases, sorted by how ready each site is to become housing.</p>
     </header>
 
     <div class="pad" style="padding-top:4px;padding-bottom:16px">
       <div class="stat-row">
-        <div class="stat"><div class="n" id="s-nouse">–</div><div class="l">Sites with no current use</div></div>
-        <div class="stat"><div class="n" id="s-acres">–</div><div class="l">Acres of that vacant land</div></div>
+        <div class="stat"><div class="n" id="s-nouse">–</div><div class="l">Lots with no recorded use</div></div>
+        <div class="stat"><div class="n" id="s-acres">–</div><div class="l">Acres of that unused land</div></div>
       </div>
       <div class="showing" id="showing"></div>
     </div>
@@ -207,7 +207,7 @@
 
 <script>
 const CATS = {
-  1:{name:'No current use',color:'#e0533a',desc:'Vacant land or structures not in active use — the clearest housing opportunity.'},
+  1:{name:'No current use',color:'#e0533a',desc:'Lots with no use of any kind on record — vacant land or unused structures. The most likely housing sites, though many are small or constrained.'},
   2:{name:'Already residential',color:'#3f6fb0',desc:'Public housing and other homes already on city land.'},
   3:{name:'Other active use',color:'#9a8c7a',desc:'Offices, schools, depots, courts and infrastructure in daily use.'},
   4:{name:'Parks & recreation',color:'#4e9d6c',desc:'Parks, playgrounds and ballfields — mostly protected from development.'},
@@ -365,7 +365,7 @@ function updateShowing(){
   if(state.d3) hint=` · <span style="color:var(--muted)">drag to rotate · height = capacity</span>`;
   else if(map&&map.getZoom()<POLY_ZOOM) hint=` · <span style="color:var(--muted)">zoom in for lot shapes</span>`;
   document.getElementById('showing').innerHTML=
-    `Showing <b>${fmt(shown.length)}</b> of ${fmt(DATA.length)} parcels`+
+    `Showing <b>${fmt(shown.length)}</b> of ${fmt(DATA.length)} lots`+
     (su?` — <b>${fmt(su)}</b> with no current use`:``)+hint;
 }
 
@@ -537,6 +537,7 @@ function popup(x){
     <span class="pop-badge" style="background:${c.color}">${c.name}</span>
     <div class="pop-grid">${g.map(([k,v])=>`<span class="k">${k}</span><span class="v">${v}</span>`).join('')}</div>
     ${cap}
+    ${x.nrec>1?`<div style="margin-top:8px;font-size:11px;color:#8a867c;font-style:italic">This tax lot carries ${x.nrec} recorded uses; shown by its most active one.</div>`:''}
     <div style="margin-top:8px;font-size:11px;color:#9a968c">BBL ${x.b}</div>`;
 }
 </script>
