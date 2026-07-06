@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>The city's own land — a map of New York City's public parcels</title>
+<meta name="description" content="An interactive map of the 17,298 parcels New York City owns or leases, sorted by how ready each site is for housing.">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{
+    --nouse:#e0533a; --resi:#3f6fb0; --other:#9a8c7a; --cult:#4e9d6c;
+    --ink:#1a1a1a; --paper:#ffffff; --line:#e2e0da; --muted:#6a675f; --bg:#f4f2ec;
+    --sans:"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:var(--sans);color:var(--ink);background:var(--bg)}
+  #app{display:flex;height:100vh;overflow:hidden}
+  /* Sidebar */
+  #panel{width:360px;flex:0 0 360px;height:100%;overflow-y:auto;background:var(--paper);
+    border-right:1px solid var(--line);padding:0 0 40px}
+  .pad{padding:20px 22px}
+  header.pad{padding-bottom:14px}
+  .kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  h1{font-size:25px;line-height:1.12;margin:8px 0 6px;font-weight:800;letter-spacing:-.01em}
+  .sub{font-size:13.5px;line-height:1.5;color:var(--muted);margin:0}
+  .divide{border:0;border-top:1px solid var(--line);margin:0}
+  .sec-h{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 12px}
+  /* Legend / category toggles */
+  .cat{display:flex;align-items:flex-start;gap:11px;padding:9px 0;cursor:pointer;user-select:none}
+  .cat:not(:last-child){border-bottom:1px solid var(--line)}
+  .dot{width:14px;height:14px;border-radius:50%;flex:0 0 14px;margin-top:2px}
+  .cat.off .dot{background:#d9d6cf!important;box-shadow:none}
+  .cat.off .cat-name,.cat.off .cat-count{color:#b6b2a8}
+  .cat-name{font-size:13.5px;font-weight:700;line-height:1.25}
+  .cat-count{font-size:12px;color:var(--muted);margin-top:1px}
+  .cat-body{flex:1}
+  .cat-desc{font-size:11.5px;color:var(--muted);line-height:1.35;margin-top:2px}
+  /* Controls */
+  label.fld{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 5px}
+  select,input[type=search]{width:100%;padding:8px 10px;font-size:13px;font-family:inherit;
+    border:1px solid var(--line);border-radius:6px;background:#fbfaf7;color:var(--ink)}
+  .field{margin-bottom:15px}
+  .rangeval{float:right;font-weight:700;color:var(--ink);text-transform:none;letter-spacing:0}
+  input[type=range]{width:100%;accent-color:var(--nouse);margin:2px 0 0}
+  .chk{display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer;padding:5px 0}
+  .chk input{width:15px;height:15px;accent-color:var(--nouse)}
+  .stat-row{display:flex;gap:10px;margin:2px 0 4px}
+  .stat{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px 12px}
+  .stat .n{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .stat .l{font-size:10.5px;color:var(--muted);line-height:1.25;margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+  .showing{font-size:12.5px;color:var(--muted);margin:14px 0 0}
+  .showing b{color:var(--ink)}
+  a.link{color:var(--nouse);text-decoration:none;border-bottom:1px solid currentColor}
+  .foot{font-size:11.5px;color:var(--muted);line-height:1.5}
+  .foot p{margin:0 0 9px}
+  /* Map */
+  #map-wrap{flex:1;position:relative}
+  #map{position:absolute;inset:0;background:#dfe7ea}
+  /* AI caution */
+  #ai-btn{position:absolute;top:12px;right:12px;z-index:900;background:#7a1f1f;color:#fff;border:none;
+    padding:7px 12px;font-size:11px;font-weight:700;letter-spacing:.05em;border-radius:6px;cursor:pointer;
+    text-transform:uppercase;box-shadow:0 1px 5px rgba(0,0,0,.25)}
+  #ai-pop{position:absolute;top:48px;right:12px;z-index:900;width:300px;background:#12233f;color:#e8edf5;
+    padding:16px 18px;border-radius:9px;font-size:12.5px;line-height:1.55;display:none;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+  #ai-pop.show{display:block}
+  #ai-pop b{color:#fff}
+  .leaflet-popup-content{margin:13px 15px;font-family:var(--sans);font-size:13px;line-height:1.5}
+  .pop-name{font-weight:800;font-size:14px;margin-bottom:2px}
+  .pop-badge{display:inline-block;font-size:10.5px;font-weight:700;color:#fff;padding:2px 7px;border-radius:4px;margin:5px 0 8px;text-transform:uppercase;letter-spacing:.04em}
+  .pop-grid{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12.5px}
+  .pop-grid .k{color:var(--muted)}
+  .pop-grid .v{font-weight:600;text-align:right}
+  .cap{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:12px}
+  .cap b{color:var(--nouse)}
+  /* Mobile */
+  #menu-btn{display:none}
+  @media(max-width:760px){
+    #app{flex-direction:column}
+    #panel{position:fixed;z-index:1000;width:88%;max-width:360px;left:0;top:0;height:100%;
+      transform:translateX(-100%);transition:transform .25s;box-shadow:2px 0 20px rgba(0,0,0,.25)}
+    #panel.open{transform:translateX(0)}
+    #map-wrap{flex:1;height:100vh}
+    #menu-btn{display:block;position:absolute;top:12px;left:12px;z-index:900;background:var(--paper);
+      border:1px solid var(--line);border-radius:6px;padding:9px 13px;font-weight:700;font-size:13px;
+      box-shadow:0 1px 5px rgba(0,0,0,.2);cursor:pointer}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header class="pad">
+      <div class="kicker">New York City open data</div>
+      <h1>The city's own land</h1>
+      <p class="sub">Every one of the <b id="hdr-total">17,298</b> parcels the city owns or leases, sorted by how ready each site is to become housing.</p>
+    </header>
+
+    <div class="pad" style="padding-top:4px;padding-bottom:16px">
+      <div class="stat-row">
+        <div class="stat"><div class="n" id="s-nouse">–</div><div class="l">Sites with no current use</div></div>
+        <div class="stat"><div class="n" id="s-acres">–</div><div class="l">Acres of that vacant land</div></div>
+      </div>
+      <div class="showing" id="showing"></div>
+    </div>
+
+    <hr class="divide">
+    <div class="pad">
+      <div class="sec-h">Land by readiness for housing</div>
+      <div id="cats"></div>
+    </div>
+
+    <hr class="divide">
+    <div class="pad">
+      <div class="sec-h">Filter the sites</div>
+      <div class="field">
+        <label class="fld" for="f-boro">Borough</label>
+        <select id="f-boro"><option value="">All five boroughs</option></select>
+      </div>
+      <div class="field">
+        <label class="fld" for="f-agency">Agency / jurisdiction</label>
+        <select id="f-agency"><option value="">All agencies</option></select>
+      </div>
+      <div class="field">
+        <label class="fld" for="f-size">Minimum lot size <span class="rangeval" id="size-val">any</span></label>
+        <input type="range" id="f-size" min="0" max="20000" step="500" value="0">
+      </div>
+      <label class="chk"><input type="checkbox" id="f-res"> Only lots zoned for housing as-of-right</label>
+      <label class="chk"><input type="checkbox" id="f-disp"> Only lots flagged for potential disposition</label>
+      <div class="field" style="margin-top:14px">
+        <label class="fld" for="f-search">Search an address</label>
+        <input type="search" id="f-search" placeholder="e.g. Atlantic Ave">
+      </div>
+    </div>
+
+    <hr class="divide">
+    <div class="pad foot">
+      <div class="sec-h">About this map</div>
+      <p>Inspired by the NYU Furman Center's <a class="link" href="https://www.furmancenter.org/publication/what-new-interactive-maps-reveal-about-the-development-potential-of-new-york-citys-city-owned-land/" target="_blank" rel="noopener">interactive maps</a> of city-owned land and the Mamdani administration's LIFT task force goal of 25,000 homes on public land.</p>
+      <p>Data: Department of City Planning <b>City Owned and Leased Properties (COLP)</b> joined to <b>MapPLUTO</b> for lot size and zoning, via NYC Open Data.</p>
+      <p><a class="link" href="methodology.html" target="_blank">Full methodology, categories and caveats →</a></p>
+    </div>
+  </aside>
+
+  <div id="map-wrap">
+    <button id="menu-btn">☰ Filters</button>
+    <button id="ai-btn">⚠ AI caution</button>
+    <div id="ai-pop">
+      <b>Made with AI assistance.</b><br>
+      This map was built by joining public city datasets with an AI coding assistant. The categories are a simplification of a complex reality — a lot's true development potential depends on soil, easements, existing tenants, community plans and politics that no dataset fully captures. Treat the "no current use" and capacity figures as a starting point for reporting, not a buildable-sites list. Verify any specific parcel against primary records before relying on it.
+    </div>
+    <div id="map"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const CATS = {
+  1:{name:'No current use',color:'#e0533a',desc:'Vacant land or structures not in active use — the clearest housing opportunity.'},
+  2:{name:'Already residential',color:'#3f6fb0',desc:'Public housing and other homes already on city land.'},
+  3:{name:'Other active use',color:'#9a8c7a',desc:'Offices, schools, depots, courts and infrastructure in daily use.'},
+  4:{name:'Parks & recreation',color:'#4e9d6c',desc:'Parks, playgrounds and ballfields — mostly protected from development.'},
+};
+const BORO_OF = b => ({'1':'Manhattan','2':'Bronx','3':'Brooklyn','4':'Queens','5':'Staten Island'}[String(b).charAt(0)]||'');
+const fmt = n => n.toLocaleString('en-US');
+const AGENCY = {DPR:'Parks & Recreation',HPD:'Housing Preservation & Development',NYCHA:'Housing Authority',DOE:'Education',DCAS:'Citywide Administrative Services',DEP:'Environmental Protection',DSNY:'Sanitation',DOT:'Transportation',NYPD:'Police',FDNY:'Fire',DSBS:'Small Business Services',EDC:'Economic Development Corp.',DOHMH:'Health & Mental Hygiene',ACS:'Children’s Services',DHS:'Homeless Services',HRA:'Human Resources Administration',DCLA:'Cultural Affairs',DOC:'Correction',DFTA:'Aging',NYPL:'Public Library',BPL:'Brooklyn Public Library',QPL:'Queens Public Library'};
+
+let DATA=[], map, layer, markers=[];
+const state={cats:new Set([1,2,3,4]),boro:'',agency:'',size:0,res:false,disp:false,q:''};
+
+fetch('colp_map.json').then(r=>r.json()).then(d=>{DATA=d;init();});
+
+function estUnits(p){ // rough as-of-right residential capacity
+  if(!p.ar||!p.rf||p.rf<=0) return 0;
+  return Math.floor((p.ar*p.rf)/1000);
+}
+
+function init(){
+  map=L.map('map',{preferCanvas:true,zoomControl:false}).setView([40.702,-73.95],11);
+  L.control.zoom({position:'bottomleft'}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+  layer=L.layerGroup().addTo(map);
+  window.map=map;
+  window.addEventListener('resize',()=>map.invalidateSize());
+  setTimeout(()=>map.invalidateSize(),250);
+
+  // build category legend
+  const cw=document.getElementById('cats');
+  Object.entries(CATS).forEach(([id,c])=>{
+    const n=DATA.filter(x=>x.c==id).length;
+    const el=document.createElement('div');el.className='cat';el.dataset.id=id;
+    el.innerHTML=`<span class="dot" style="background:${c.color};box-shadow:0 0 0 3px ${c.color}22"></span>
+      <div class="cat-body"><div class="cat-name">${c.name}</div>
+      <div class="cat-count">${fmt(n)} parcels</div>
+      <div class="cat-desc">${c.desc}</div></div>`;
+    el.onclick=()=>{const i=+id; el.classList.toggle('off');
+      if(state.cats.has(i))state.cats.delete(i);else state.cats.add(i);render();};
+    cw.appendChild(el);
+  });
+
+  // boroughs & agencies
+  const bs=document.getElementById('f-boro');
+  ['1','2','3','4','5'].forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=BORO_OF(b);bs.appendChild(o);});
+  const agCounts={};DATA.forEach(x=>{if(x.ag)agCounts[x.ag]=(agCounts[x.ag]||0)+1;});
+  const as=document.getElementById('f-agency');
+  Object.keys(agCounts).sort((a,b)=>agCounts[b]-agCounts[a]).forEach(a=>{
+    const o=document.createElement('option');o.value=a;
+    o.textContent=`${AGENCY[a]?AGENCY[a]+' ('+a+')':a} — ${fmt(agCounts[a])}`;as.appendChild(o);});
+
+  bs.onchange=e=>{state.boro=e.target.value;render();};
+  as.onchange=e=>{state.agency=e.target.value;render();};
+  document.getElementById('f-size').oninput=e=>{state.size=+e.target.value;
+    document.getElementById('size-val').textContent=state.size?fmt(state.size)+' sq ft':'any';render();};
+  document.getElementById('f-res').onchange=e=>{state.res=e.target.checked;render();};
+  document.getElementById('f-disp').onchange=e=>{state.disp=e.target.checked;render();};
+  let t;document.getElementById('f-search').oninput=e=>{clearTimeout(t);t=setTimeout(()=>{state.q=e.target.value.trim().toLowerCase();render();},220);};
+  document.getElementById('menu-btn').onclick=()=>document.getElementById('panel').classList.toggle('open');
+  document.getElementById('ai-btn').onclick=()=>document.getElementById('ai-pop').classList.toggle('show');
+
+  // headline stats
+  const nouse=DATA.filter(x=>x.c==1);
+  const acres=nouse.reduce((s,x)=>s+(x.ar||0),0)/43560;
+  document.getElementById('s-nouse').textContent=fmt(nouse.length);
+  document.getElementById('s-acres').textContent=fmt(Math.round(acres));
+  document.getElementById('hdr-total').textContent=fmt(DATA.length);
+
+  render();
+}
+
+function pass(x){
+  if(!state.cats.has(x.c))return false;
+  if(state.boro&&BORO_OF(x.b)!==BORO_OF(state.boro))return false;
+  if(state.agency&&x.ag!==state.agency)return false;
+  if(state.size&&(!x.ar||x.ar<state.size))return false;
+  if(state.res&&!(x.rf>0))return false;
+  if(state.disp&&!x.fc)return false;
+  if(state.q&&!((x.ad||'').toLowerCase().includes(state.q)||(x.pn||'').toLowerCase().includes(state.q)))return false;
+  return true;
+}
+
+function render(){
+  layer.clearLayers();
+  const shown=DATA.filter(pass);
+  const canvas=L.canvas({padding:.5});
+  shown.forEach(x=>{
+    const c=CATS[x.c].color;
+    const m=L.circleMarker([x.la,x.lo],{renderer:canvas,radius:x.c==1?4.2:3.2,
+      fillColor:c,color:'#fff',weight:.6,fillOpacity:x.c==1?.92:.72});
+    m.on('click',()=>m.bindPopup(popup(x),{maxWidth:280}).openPopup());
+    layer.addLayer(m);
+  });
+  const su=shown.filter(x=>x.c==1).length;
+  document.getElementById('showing').innerHTML=
+    `Showing <b>${fmt(shown.length)}</b> of ${fmt(DATA.length)} parcels`+
+    (su?` — <b>${fmt(su)}</b> with no current use`:``);
+}
+
+function popup(x){
+  const c=CATS[x.c];
+  const u=estUnits(x);
+  const g=[];
+  g.push(['Jurisdiction',AGENCY[x.ag]?`${AGENCY[x.ag]} (${x.ag})`:x.ag||'—']);
+  g.push(['Use on record',(x.ut||'—').toLowerCase().replace(/\b\w/g,l=>l.toUpperCase())]);
+  if(x.ar)g.push(['Lot size',`${fmt(x.ar)} sq ft`]);
+  if(x.z)g.push(['Zoning',x.z]);
+  if(x.le)g.push(['Tenure','Leased by the city']);
+  if(x.fc)g.push(['Flag','Possible disposition']);
+  let cap='';
+  if(x.c==1){
+    if(u>0)cap=`<div class="cap">As-of-right zoning could allow roughly <b>${fmt(u)} home${u==1?'':'s'}</b> here (${fmt(x.ar)} sq ft × ${x.rf} FAR).</div>`;
+    else if(x.ar&&x.ar<5000)cap=`<div class="cap">At <b>${fmt(x.ar)} sq ft</b> this lot is likely too small for multifamily housing on its own.</div>`;
+    else if(x.ar)cap=`<div class="cap">Not zoned for housing as-of-right — would need a <b>rezoning</b> to build homes.</div>`;
+  }
+  return `<div class="pop-name">${x.pn||x.ad||'City parcel'}</div>
+    ${x.ad&&x.pn?`<div style="font-size:12px;color:#6a675f">${x.ad}</div>`:''}
+    <span class="pop-badge" style="background:${c.color}">${c.name}</span>
+    <div class="pop-grid">${g.map(([k,v])=>`<span class="k">${k}</span><span class="v">${v}</span>`).join('')}</div>
+    ${cap}
+    <div style="margin-top:8px;font-size:11px;color:#9a968c">BBL ${x.b}</div>`;
+}
+</script>
+</body>
+</html>

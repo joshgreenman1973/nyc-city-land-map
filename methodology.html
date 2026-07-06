@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Methodology — The city's own land</title>
+<style>
+  body{font-family:"Helvetica Neue",Arial,sans-serif;color:#1a1a1a;max-width:720px;margin:0 auto;
+    padding:48px 26px 90px;line-height:1.62;font-size:16px;background:#f4f2ec}
+  .kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#6a675f;font-weight:700}
+  h1{font-size:31px;line-height:1.12;margin:8px 0 6px;letter-spacing:-.01em}
+  h2{font-size:19px;margin:34px 0 8px}
+  p,li{color:#26241f}
+  a{color:#e0533a}
+  code{background:#e7e4dc;padding:1px 5px;border-radius:4px;font-size:13.5px}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+  th,td{border:1px solid #d9d6cf;padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:#e7e4dc}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .note{background:#fff;border:1px solid #d9d6cf;border-left:4px solid #e0533a;padding:14px 18px;border-radius:6px;font-size:14.5px}
+  hr{border:0;border-top:1px solid #d9d6cf;margin:30px 0}
+  .back{font-size:14px;font-weight:700;text-decoration:none;color:#e0533a}
+</style>
+</head>
+<body>
+<a class="back" href="index.html">← Back to the map</a>
+<div class="kicker" style="margin-top:22px">Methodology &amp; sources</div>
+<h1>How this map was made</h1>
+<p>This map plots the parcels that New York City owns or leases and sorts each one by how ready it is to become housing. It was built to explore the same question the NYU Furman Center raised in its <a href="https://www.furmancenter.org/publication/what-new-interactive-maps-reveal-about-the-development-potential-of-new-york-citys-city-owned-land/" target="_blank" rel="noopener">interactive maps of city-owned land</a>: of all the land the city holds, how much could realistically hold new homes?</p>
+
+<h2>The data</h2>
+<p>Two public datasets, both from NYC Open Data, current as of July 2026:</p>
+<ul>
+<li><b>City Owned and Leased Properties (COLP)</b> — published by the Department of City Planning (DCP) under chapter 204 of the City Charter. It lists the location, controlling agency and current use of every city-owned or city-leased tax lot. <a href="https://data.cityofnewyork.us/dataset/fn4k-qyk2" target="_blank" rel="noopener">Dataset <code>fn4k-qyk2</code></a>. This map uses all <b>17,298</b> records that carry a mappable coordinate.</li>
+<li><b>MapPLUTO</b> — DCP's tax-lot database, joined to COLP on the ten-digit Borough-Block-Lot (BBL) identifier to add each lot's <b>area</b>, <b>zoning district</b> and <b>residential floor-area ratio (FAR)</b>. <a href="https://data.cityofnewyork.us/dataset/64uk-42ks" target="_blank" rel="noopener">Dataset <code>64uk-42ks</code></a>. A match was found for <b>15,107 of 15,188</b> distinct lots (99.5%); the handful without a match show no size or zoning.</li>
+</ul>
+
+<h2>The four categories</h2>
+<p>Every parcel is placed in one of four groups, using COLP's own <code>category_code</code> and <code>expanded_category_code</code> fields. The groups are ordered by how suitable the land is for new housing — the same framing the Furman Center used.</p>
+<table>
+<tr><th>Category</th><th>How it is defined here</th><th>Parcels</th></tr>
+<tr><td><span class="dot" style="background:#e0533a"></span><b>No current use</b></td><td>Records DCP labels "property with no use" — vacant land and structures not in active use.</td><td>3,132</td></tr>
+<tr><td><span class="dot" style="background:#3f6fb0"></span><b>Already residential</b></td><td>COLP category 2 — public housing, transitional and other homes already on city land.</td><td>1,183</td></tr>
+<tr><td><span class="dot" style="background:#9a8c7a"></span><b>Other active use</b></td><td>Category 1 uses other than parks: offices, schools, depots, courts, garages, infrastructure and lots leased to private tenants.</td><td>5,888</td></tr>
+<tr><td><span class="dot" style="background:#4e9d6c"></span><b>Parks &amp; recreation</b></td><td>The "cultural &amp; recreational" expanded category — parks, playgrounds and ballfields, mostly parkland protected from development.</td><td>7,095</td></tr>
+</table>
+<p>These shares line up with the Furman Center's finding that parks and recreation account for more than 40% of city lots, sites with no current use for roughly 20%, and residential land for under 10%.</p>
+
+<h2>The "homes here" estimate</h2>
+<p>For a lot with no current use that is zoned for housing, the popup shows a rough as-of-right capacity:</p>
+<p style="text-align:center"><code>estimated homes ≈ (lot area × residential FAR) ÷ 1,000 sq ft</code></p>
+<p>This is a deliberately simple back-of-envelope figure — it assumes about 1,000 square feet of building per home and takes the base residential FAR straight from zoning. It ignores height limits, setbacks, lot shape, bonuses, and every site-specific constraint. It is meant to separate "could plausibly hold real housing" from "could not," not to predict a project.</p>
+<p>Where a no-use lot is <b>not</b> zoned for housing (residential FAR of zero), the map notes it would need a rezoning. Where a lot is smaller than <b>5,000 square feet</b>, it flags that multifamily housing is difficult — echoing the Furman Center's point that most vacant city lots are small. In this data, <b>64%</b> of no-use lots with a recorded size fall under that threshold.</p>
+
+<h2>Filters</h2>
+<ul>
+<li><b>Minimum lot size</b> hides lots below the chosen square footage (lots with no PLUTO size match drop out once any minimum is set).</li>
+<li><b>Zoned for housing as-of-right</b> keeps only lots with a residential FAR above zero.</li>
+<li><b>Flagged for potential disposition</b> uses COLP's <code>final_commitment = "D"</code> field, DCP's marker that a lot may be disposed of by the city.</li>
+</ul>
+
+<h2>Caveats</h2>
+<div class="note">
+<p style="margin:0 0 8px"><b>This is a starting point, not a buildable-sites list.</b></p>
+<p style="margin:0">A parcel's real development potential turns on contamination, easements, existing tenants and leases, air rights, community plans, landmarking and politics — none of which a tax-lot dataset captures. Parkland in particular is legally hard to build on. "No current use" means no use <i>on record</i>, which is not the same as empty or available. COLP is a point-in-time snapshot and lags real conditions. Verify any individual parcel against primary records before relying on it.</p>
+</div>
+
+<hr>
+<p style="font-size:13.5px;color:#6a675f">Built with an AI coding assistant from public NYC Open Data. Not affiliated with the NYU Furman Center or the City of New York. Source data © the City of New York; basemap © OpenStreetMap and CARTO.</p>
+<a class="back" href="index.html">← Back to the map</a>
+</body>
+</html>
